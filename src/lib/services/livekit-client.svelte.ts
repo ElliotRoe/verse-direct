@@ -57,6 +57,8 @@ export class LiveKitChatClient extends BaseChatClient {
 			const token = await this.getToken();
 			await this.room.connect(this.wsUrl, token);
 
+			console.log('Connected to LiveKit room');
+
 			// Now set up room event handlers after connection
 			this.setupRoom();
 
