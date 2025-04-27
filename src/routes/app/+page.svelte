@@ -51,7 +51,15 @@
 		instructions
 	}}
 >
-	{#snippet children({ connectionState, assistantStream, userStream, startSession, stopSession })}
+	{#snippet children({
+		connectionState,
+		assistantStream,
+		userStream,
+		startSession,
+		stopSession,
+		toggleRecording,
+		isRecording
+	})}
 		<div class="flex h-screen flex-col items-center overflow-y-auto pt-8">
 			<div
 				class="relative flex w-full flex-1 flex-col items-center justify-between space-y-6 sm:w-[400px]"
@@ -70,14 +78,8 @@
 						pressed={isMuted}
 						class="mt-10 h-40 w-full text-white"
 						on:click={() => {
-							isMuted = !isMuted;
-							if (isMuted) {
-								assistantStream?.getTracks().forEach((track) => (track.enabled = false));
-								userStream?.getTracks().forEach((track) => (track.enabled = false));
-							} else {
-								assistantStream?.getTracks().forEach((track) => (track.enabled = true));
-								userStream?.getTracks().forEach((track) => (track.enabled = true));
-							}
+							toggleRecording();
+							isMuted = isRecording;
 						}}
 					>
 						{#if isMuted}
