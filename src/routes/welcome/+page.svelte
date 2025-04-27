@@ -21,10 +21,9 @@
 	const ageGroups = ['18-24', '25-34', '35-44', '45-54', '55+'];
 	const genders = ['Male', 'Female', 'Non-binary', 'Prefer not to say'];
 
-	$inspect(firebaseUser.data);
-	$inspect(firebaseUser.loading);
-
 	$effect(() => {
+		console.log('firebaseUser.loading', firebaseUser.loading);
+		console.log('firebaseUser.data', firebaseUser.data);
 		if (!firebaseUser.loading && !firebaseUser.data) {
 			console.log('signing in anonymously');
 			signInAnonymously();
