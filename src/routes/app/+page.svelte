@@ -88,7 +88,7 @@
 					</Toggle>
 					<Button
 						variant="secondary"
-						class="mt-4 w-full text-white"
+						class="mt-4 w-full"
 						onclick={() => {
 							stopSession();
 							// refresh page
