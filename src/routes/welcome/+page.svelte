@@ -12,7 +12,7 @@
 	import { createDefaultPrompt } from '$lib/utils/default-prompt';
 
 	let { children } = $props();
-	let step = $state(0);
+	let step = $state(1);
 	let name = $state('');
 	let age = $state('');
 	let gender = $state('');
@@ -31,9 +31,7 @@
 	});
 
 	async function handleContinue() {
-		if (step === 0) {
-			step = 1;
-		} else if (step === 1) {
+		if (step === 1) {
 			step = 2;
 		} else if (step === 2) {
 			step = 3;
@@ -82,16 +80,7 @@
 <div class="h-screen w-full bg-black">
 	<div class="flex h-full flex-col items-center justify-center gap-12 px-8">
 		<form onsubmit={handleSubmit} class="flex h-full flex-col items-center justify-center gap-12">
-			{#if step === 0}
-				<div class="font-caveat text-center text-4xl text-white">
-					<p class="mb-4">Build yourself back,</p>
-					<div class="flex items-center justify-center gap-2">
-						<span class="font-metal text-6xl">BRICK</span>
-						<span class="font-metal text-4xl">x</span>
-						<span class="font-metal text-6xl">BRICK</span>
-					</div>
-				</div>
-			{:else if step === 1}
+			{#if step === 1}
 				<div class="flex flex-col items-center gap-8">
 					<h2 class="font-caveat text-4xl text-white">
 						So let's re-discover ourselves, who are you?

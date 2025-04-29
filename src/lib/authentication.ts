@@ -121,3 +121,5 @@ export const isAnonymousFromToken = (decodedToken: { anonymous?: boolean } | nul
 };
 
 export const firebaseUser = new CurrentUserState({ auth });
+
+export const UNAUTH_REDIRECT_PATH = '/welcome';

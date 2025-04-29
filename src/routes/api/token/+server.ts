@@ -11,6 +11,8 @@ export async function POST({ request }: RequestEvent) {
 		const body = await request.json();
 		const { room: roomName, userId, instructions, email, displayName }: LiveKitTokenConfig = body;
 
+		console.log('displayName', displayName);
+
 		if (!roomName) {
 			return json({ error: 'Missing "room" in request body' }, { status: 400 });
 		} else if (!userId) {
