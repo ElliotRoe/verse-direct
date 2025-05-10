@@ -2,6 +2,7 @@
 	import '../app.css';
 	let { children } = $props();
 	import { analytics } from '$lib/firebase';
+	import ThemeToggle from '$lib/components/theme-toggle.svelte';
 
 	import { logEvent, type Analytics } from 'firebase/analytics';
 	import { page } from '$app/state';
@@ -30,7 +31,7 @@
 	});
 </script>
 
-<main class="h-screen w-full bg-black">
+<main class="h-screen w-full bg-gradient-to-br from-yellow-100 to-orange-200">
 	{@render children()}
 </main>
 
