@@ -44,6 +44,7 @@
 <div class="flex h-full w-full flex-col items-center justify-between">
 	<div class="flex h-1/3 flex-col justify-center">
 		<span class="text-[125px]">{streakCount}</span>
+		<span class="text-muted-foreground">days</span>
 	</div>
 	<div
 		class="flex h-2/3 w-full max-w-[500px] flex-col justify-between rounded-t-2xl bg-background p-4 shadow-lg"
