@@ -9,8 +9,6 @@ import {
 import { auth } from '$lib/firebase';
 import { CurrentUserState } from 'svelte-firebase-state';
 
-const AUTH_URL = '/api/signin';
-
 const sendTokenToServer = async (idToken: string, anonymous: boolean) => {
 	await fetch(AUTH_URL, {
 		method: 'POST',
@@ -19,6 +17,31 @@ const sendTokenToServer = async (idToken: string, anonymous: boolean) => {
 		},
 		body: JSON.stringify({ idToken, anonymous })
 	});
+};
+
+const sendNewUserData = async (
+	userId: string,
+	displayName: string,
+	email: string,
+	idToken: string
+) => {
+	console.log('Sending new user data to server');
+	const response = await fetch('/api/newuser', {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json',
+			Authorization: `Bearer ${idToken}`
+		},
+		body: JSON.stringify({
+			userId,
+			displayName,
+			email
+		})
+	});
+
+	if (!response.ok) {
+		console.error('Failed to create initial user data:', await response.text());
+	}
 };
 
 export const signUp = async (
@@ -36,6 +59,7 @@ export const signUp = async (
 
 		const idToken = await user.getIdToken();
 		await sendTokenToServer(idToken, false);
+		await sendNewUserData(user.uid, `${firstName} ${lastName}`, email, idToken);
 
 		return user;
 	} catch (error) {
@@ -69,6 +93,13 @@ export async function signInWithGoogle() {
 	const idToken = await user.getIdToken();
 	await sendTokenToServer(idToken, false);
 
+	return user;
+}
+
+export async function signUpWithGoogle() {
+	const user = await signInWithGoogle();
+	const idToken = await user.getIdToken();
+	await sendNewUserData(user.uid, user.displayName ?? '', user.email ?? '', idToken);
 	return user;
 }
 
@@ -122,4 +153,6 @@ export const isAnonymousFromToken = (decodedToken: { anonymous?: boolean } | nul
 
 export const firebaseUser = new CurrentUserState({ auth });
 
-export const UNAUTH_REDIRECT_PATH = '/welcome';
+export const UNAUTH_REDIRECT_PATH = '/auth/signin';
+export const AUTH_URL = '/api/signin';
+export const DASHBOARD_URL = '/app/dashboard';

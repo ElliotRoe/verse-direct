@@ -7,7 +7,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	// If user is not authenticated, redirect them to auth page
 	if (!user) {
-		throw redirect(302, UNAUTH_REDIRECT_PATH);
+		// throw redirect(302, UNAUTH_REDIRECT_PATH);
 	}
 
 	return {

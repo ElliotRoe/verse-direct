@@ -10,7 +10,8 @@
 	import Button from '$lib/components/ui/button/button.svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { db } from '$lib/firebase';
-	import { doc, getDoc } from 'firebase/firestore';
+	import { collection, doc, getDoc, query, orderBy, limit, getDocs } from 'firebase/firestore';
+	import { goto } from '$app/navigation';
 
 	let conversationId = $state<string>(uuidv4());
 	let circleSize = $state(400);
@@ -22,11 +23,34 @@
 		circleSize = window.innerWidth < 640 ? Math.min(window.innerWidth - 125, 400) : 400;
 	}
 
+	$inspect(firebaseUser.data);
+
 	async function fetchUserInstructions() {
-		console.log('fetching user instructions');
-		const userDocRef = doc(db, 'users', firebaseUser.data?.uid || '');
-		const userDoc = await getDoc(userDocRef);
-		instructions = userDoc.data()?.currentPrompt || '';
+		if (!firebaseUser.data?.uid) {
+			return null;
+		}
+
+		console.log('fetching user instructions', firebaseUser.data?.uid);
+		const generatedPromptsRef = collection(
+			db,
+			'users',
+			firebaseUser.data?.uid,
+			'generated_prompts'
+		);
+
+		try {
+			const q = query(generatedPromptsRef, orderBy('generation_timestamp', 'desc'), limit(1));
+
+			const querySnapshot = await getDocs(q);
+			if (!querySnapshot.empty) {
+				const doc = querySnapshot.docs[0];
+				instructions = doc.data().prompt_text;
+			} else {
+				console.log('No instructions found');
+			}
+		} catch (err) {
+			console.error('Error fetching user instructions:', err);
+		}
 	}
 
 	$effect(() => {
@@ -64,19 +88,23 @@
 			<div
 				class="relative flex w-full flex-1 flex-col items-center justify-between space-y-6 sm:w-[400px]"
 			>
-				<div
-					class="relative w-full flex-shrink-0 items-center justify-center sm:aspect-square sm:h-[400px] sm:w-[400px]"
-				>
-					<AudioVisualizationCircle
-						isSessionActive={connectionState === ConnectionState.Connected}
-						innerStream={assistantStream}
-						outerStream={userStream}
-						size={circleSize}
-						variant="accent"
-					/>
+				<div class="flex h-full w-full flex-col justify-center">
+					<div
+						class="relative w-full flex-shrink-0 items-center justify-center sm:aspect-square sm:h-[400px] sm:w-[400px]"
+					>
+						<AudioVisualizationCircle
+							isSessionActive={connectionState === ConnectionState.Connected}
+							innerStream={assistantStream}
+							outerStream={userStream}
+							size={circleSize}
+							variant="accent"
+						/>
+					</div>
+				</div>
+				<div class="flex h-[20vh] w-full flex-row gap-2 rounded-t-xl bg-background p-4 shadow-md">
 					<Toggle
 						pressed={isMuted}
-						class="mt-10 h-40 w-full text-white"
+						class="h-full w-2/3 rounded-full border"
 						on:click={() => {
 							toggleRecording();
 							isMuted = isRecording;
@@ -89,40 +117,42 @@
 						{/if}
 					</Toggle>
 					<Button
-						variant="secondary"
-						class="mt-4 w-full"
+						variant="destructiveLight"
+						size="icon"
+						class="h-full w-1/3 rounded-full"
 						onclick={() => {
 							stopSession();
-							// refresh page
-							window.location.reload();
+							goto('/app/dashboard');
 						}}
 					>
-						End Session
+						<Icon icon="ph:x" class="h-10 w-10" />
 					</Button>
 				</div>
 			</div>
 		</div>
 
 		<Dialog.Root bind:open={showWelcomeDialog}>
-			<Dialog.Content
-				class="flex aspect-square w-[400px] flex-col items-center justify-center border-gray-700 bg-gray-900 text-white"
-			>
+			<Dialog.Content class="flex aspect-square w-[400px] flex-col items-center justify-center">
 				<Dialog.Header class="flex flex-col items-center text-center">
-					<Dialog.Title class="font-caveat text-4xl text-white">Headphones Reccomended</Dialog.Title
-					>
-					<Dialog.Description class="flex flex-col items-center text-gray-300">
+					<Dialog.Title class="font-caveat text-4xl">Headphones Reccomended</Dialog.Title>
+					<Dialog.Description class="flex flex-col items-center">
 						<img src="/logo-headphones.png" alt="Headphones" class="w-full" />
 					</Dialog.Description>
 				</Dialog.Header>
 				<Dialog.Footer class="mt-auto">
 					<Button
 						variant="secondary"
+						disabled={!instructions || firebaseUser.loading}
 						on:click={() => {
 							startSession('default');
 							showWelcomeDialog = false;
 						}}
 					>
-						Start Session
+						{#if firebaseUser.loading || !instructions}
+							Loading...
+						{:else}
+							Start Session
+						{/if}
 					</Button>
 				</Dialog.Footer>
 			</Dialog.Content>
