@@ -39,6 +39,10 @@
 					Enter your email and a password to create your account
 				</p>
 			</div>
+			<div class="mb-4 text-center text-sm text-amber-600 dark:text-amber-400">
+				Note: Sign-up processing may take up to 2 minutes to complete. Please do not exit or refresh
+				the page.
+			</div>
 			<UserAuthForm mode="signup" />
 			<!--
             <p class="text-muted-foreground px-8 text-center text-sm">
