@@ -1,7 +1,14 @@
+import { sequence } from '@sveltejs/kit/hooks';
+import * as Sentry from '@sentry/sveltekit';
 import { adminAuth } from '$lib/server/admin';
 import type { Handle } from '@sveltejs/kit';
 
-export const handle = (async ({ event, resolve }) => {
+Sentry.init({
+	dsn: 'https://eb4caf7eca29ac1372ca5356abf367e5@o4509029094064128.ingest.us.sentry.io/4509319801208832',
+	tracesSampleRate: 1
+});
+
+export const handle = sequence(Sentry.sentryHandle(), (async ({ event, resolve }) => {
 	const sessionCookie = event.cookies.get('__session');
 
 	if (!sessionCookie) {
@@ -18,4 +25,5 @@ export const handle = (async ({ event, resolve }) => {
 	}
 
 	return resolve(event);
-}) satisfies Handle;
+}) satisfies Handle);
+export const handleError = Sentry.handleErrorWithSentry();
