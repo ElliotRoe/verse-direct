@@ -7,16 +7,19 @@
 	import Separator from './ui/separator/separator.svelte';
 	import { fly } from 'svelte/transition';
 	import type { TodoItem } from '$lib/services/todoService';
+	import Skeleton from './ui/skeleton/skeleton.svelte';
 
 	let {
 		isOpen = $bindable(),
 		todaysTasks = $bindable(),
 		onClose,
-		selectedDate = $bindable(new Date())
+		selectedDate = $bindable(new Date()),
+		loading = $bindable(false)
 	}: {
 		isOpen: boolean;
 		todaysTasks: TodoItem[];
 		onClose: () => void;
+		loading: boolean;
 		selectedDate?: Date;
 	} = $props();
 
@@ -94,63 +97,67 @@
 				<section>
 					<h3 class="mb-2 text-lg font-semibold">Tasks</h3>
 					<div class="space-y-2">
-						{#each todaysTasks as task, index (task.title + index)}
-							<div
-								class="flex items-center gap-3 rounded-md p-2 hover:bg-yellow-50"
-								transition:fly={{ y: 10, duration: 200 }}
-							>
-								<Button
-									variant="ghost"
-									size="icon"
-									onclick={() => toggleTaskComplete(index)}
-									class="flex h-5 w-5 items-center justify-center rounded-full"
-								>
-									{#if task.completed}
-										<Icon icon="ph:check-circle-fill" class="h-5 w-5 text-green-600" />
-									{:else}
-										<Icon icon="ph:circle" class="h-5 w-5 text-yellow-600" />
+						{#if loading}
+							<!-- Show 3 skeleton rows as placeholders -->
+							<Skeleton class="mb-2 h-10 w-full" />
+							<Skeleton class="mb-2 h-10 w-full" />
+							<Skeleton class="h-10 w-2/3" />
+						{:else}
+							{#each todaysTasks as task, index (task.title + index)}
+								<div class="flex items-center gap-3 rounded-md p-2 hover:bg-yellow-50">
+									<Button
+										variant="ghost"
+										size="icon"
+										onclick={() => toggleTaskComplete(index)}
+										class="flex h-5 w-5 items-center justify-center rounded-full"
+									>
+										{#if task.completed}
+											<Icon icon="ph:check-circle-fill" class="h-5 w-5 text-green-600" />
+										{:else}
+											<Icon icon="ph:circle" class="h-5 w-5 text-yellow-600" />
+										{/if}
+									</Button>
+									<Separator orientation="vertical" class="h-4" />
+									{#if editableTasks[index] !== undefined}
+										<Input
+											class={task.completed
+												? 'border-none text-gray-400 line-through'
+												: 'border-none'}
+											defaultValue={editableTasks[index]}
+											onchange={(e) => updateTaskTitle(index, e.currentTarget.value)}
+										/>
 									{/if}
-								</Button>
-								<Separator orientation="vertical" class="h-4" />
-								{#if editableTasks[index] !== undefined}
-									<Input
-										class={task.completed
-											? 'border-none text-gray-400 line-through'
-											: 'border-none'}
-										defaultValue={editableTasks[index]}
-										onchange={(e) => updateTaskTitle(index, e.currentTarget.value)}
-									/>
-								{/if}
-								<Button
-									variant="ghost"
-									size="icon"
-									onclick={() => removeTask(index)}
-									class="text-red-500 transition-opacity hover:text-red-700"
-								>
-									<Icon icon="ph:trash" class="h-5 w-5 text-red-500" />
+									<Button
+										variant="ghost"
+										size="icon"
+										onclick={() => removeTask(index)}
+										class="text-red-500 transition-opacity hover:text-red-700"
+									>
+										<Icon icon="ph:trash" class="h-5 w-5 text-red-500" />
+									</Button>
+								</div>
+							{/each}
+
+							<!-- Add new task input -->
+							<div class="mt-4 flex items-center gap-2">
+								<Input
+									placeholder="Add a new task..."
+									value={newTaskInput}
+									oninput={(e) => (newTaskInput = e.currentTarget.value)}
+									onkeydown={handleKeydown}
+									class="flex-1"
+								/>
+								<Button variant="outline" size="sm" onclick={addTask}>
+									<Icon icon="ph:plus" class="h-5 w-5" />
 								</Button>
 							</div>
-						{/each}
-
-						<!-- Add new task input -->
-						<div class="mt-4 flex items-center gap-2">
-							<Input
-								placeholder="Add a new task..."
-								value={newTaskInput}
-								oninput={(e) => (newTaskInput = e.currentTarget.value)}
-								onkeydown={handleKeydown}
-								class="flex-1"
-							/>
-							<Button variant="outline" size="sm" onclick={addTask}>
-								<Icon icon="ph:plus" class="h-5 w-5" />
-							</Button>
-						</div>
+						{/if}
 					</div>
 				</section>
 			</div>
 
 			<Drawer.Footer>
-				<Drawer.Close asChild>
+				<Drawer.Close>
 					<Button variant="outline" class="h-[60px] w-full" onclick={onClose}>Close</Button>
 				</Drawer.Close>
 			</Drawer.Footer>

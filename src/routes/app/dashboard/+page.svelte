@@ -10,25 +10,25 @@
 	import * as Drawer from '$lib/components/ui/drawer/index.js';
 	import { buttonVariants } from '$lib/components/ui/button/index.js';
 	import ProgressDrawer from '$lib/components/progress-drawer.svelte';
-	import { saveTodos, getTodos, type TodoItem } from '$lib/services/todoService';
+	import { saveTodos, getTodos, type TodoItem, monitorTodoStatus } from '$lib/services/todoService';
 	import { firebaseUser } from '$lib/authentication';
 
 	const dayAbrev = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-	let hasCheckedInToday = false;
+	let hasCheckedInToday = $state(false);
 
 	// Parse URL parameter for drawer state - default to true if not specified
-	const initialDrawerState = $page.url.searchParams.get('open') !== 'false';
+	const initialDrawerState = $page.url.searchParams.get('open') === 'true';
 	let isDrawerOpen = $state(initialDrawerState);
 
 	// Get current day of week (0-6, where 0 is Sunday) in local timezone for calendar display
 	// const currentDayCalendar = new Date().getDay();
 	let currentDayCalendar = $state(new Date().getDay()); // MODIFIED: Make reactive for helper functions
 
-	let streakCount = 0; // Reactive variable for streak display
+	let streakCount = $state(0); // Reactive variable for streak display
 
-	let circleSize = $state(400);
-
-	let todaysTasks = $state<TodoItem[]>([{ title: 'Loading...', completed: false }]);
+	let todaysTasks = $state<TodoItem[]>([]);
+	let tasksGenerating = $state(false);
+	let tasksFetching = $state(true);
 
 	const trySaveTodos = async () => {
 		if (firebaseUser.data?.uid) {
@@ -62,10 +62,6 @@
 	}
 	let displayedDays: DisplayedDay[] = $state([]); // NEW
 
-	function updateSize() {
-		circleSize = window.innerWidth < 640 ? Math.min(window.innerWidth - 125, 400) : 400;
-	}
-
 	function setupCalendarDays() {
 		const today = new Date();
 		const todayOriginalIndex = today.getDay();
@@ -96,25 +92,31 @@
 			selectedDate = date;
 			if (firebaseUser.data?.uid) {
 				const todos = await getTodos(firebaseUser.data.uid, date);
-				todaysTasks =
-					todos.length > 0 ? todos : [{ title: 'Add your tasks for this day', completed: false }];
+				if (todos) {
+					if (todos.status === 'generating') {
+						tasksGenerating = true;
+						const { status, unsubscribe } = monitorTodoStatus(firebaseUser.data.uid, date);
+						$effect(() => {
+							if (status === 'completed') {
+								tasksGenerating = false;
+								unsubscribe();
+							}
+						});
+					} else {
+						tasksGenerating = false;
+					}
+					todaysTasks = todos.items;
+				} else {
+					todaysTasks = [{ title: 'Add your tasks for this day', completed: false }];
+					tasksGenerating = false;
+				}
+				tasksFetching = false;
 			} else {
 				console.error('No user ID found');
 			}
 			originalTodaysTasks = JSON.stringify($state.snapshot(todaysTasks));
 		} catch (error) {
 			console.error('Failed to load todos for date:', error);
-		}
-	}
-
-	// Handle day chip click to load todos for that day
-	function handleDayClick(index: number) {
-		const clickedDay = displayedDays[index];
-		if (clickedDay) {
-			const today = new Date();
-			const newDate = new Date(today);
-			newDate.setDate(today.getDate() + (index - 2)); // Offset from today
-			loadTodosForDate(newDate);
 		}
 	}
 
@@ -146,10 +148,6 @@
 		streakCount = result.newStreakCount;
 		hasCheckedInToday = result.newHasCheckedInToday;
 		goto('/app');
-	};
-
-	const onReviewClicked = () => {
-		isDrawerOpen = true;
 	};
 </script>
 
@@ -199,6 +197,7 @@
 					<ProgressDrawer
 						bind:isOpen={isDrawerOpen}
 						bind:todaysTasks
+						loading={tasksGenerating || tasksFetching}
 						onClose={handleDrawerClose}
 						{selectedDate}
 					/>

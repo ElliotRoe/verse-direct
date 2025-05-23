@@ -33,9 +33,7 @@
 <main
 	class="flex h-screen w-full flex-col items-center justify-center bg-gradient-to-br from-yellow-100 to-orange-200"
 >
-	<div class="mobile-container">
-		{@render children()}
-	</div>
+	{@render children()}
 </main>
 
 <style>
@@ -43,9 +41,5 @@
 
 	:global(.font-cinzel) {
 		font-family: 'Cinzel', serif;
-	}
-
-	.mobile-container {
-		@apply flex h-full w-full flex-col items-center justify-center sm:w-[500px];
 	}
 </style>

@@ -7,7 +7,8 @@ import {
 	query,
 	where,
 	getDocs,
-	Timestamp
+	Timestamp,
+	onSnapshot
 } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { formatISO, parseISO } from 'date-fns';
@@ -27,6 +28,7 @@ export interface TodoArtifact {
 	date: string; // ISO date string
 	items: TodoItem[];
 	userId: string;
+	status: 'generating' | 'completed';
 }
 
 /**
@@ -41,12 +43,14 @@ function generateUUID(): string {
  * Save todos to Firestore
  * @param todos Array of todo items
  * @param date Optional date, defaults to today
+ * @param status Optional status, defaults to 'completed'
  * @returns Promise resolving to void
  */
 export async function saveTodos(
 	uuid: string,
 	todos: TodoItem[],
-	date: Date = new Date()
+	date: Date = new Date(),
+	status: 'generating' | 'completed' = 'completed'
 ): Promise<void> {
 	// Format date as ISO string but trim time components
 	const dateString = formatISO(date).split('T')[0];
@@ -61,7 +65,8 @@ export async function saveTodos(
 			todoRef,
 			{
 				items: todos,
-				updatedAt: Timestamp.now()
+				updatedAt: Timestamp.now(),
+				status
 			},
 			{ merge: true }
 		);
@@ -75,7 +80,8 @@ export async function saveTodos(
 			updatedAt: Timestamp.now(),
 			date: dateString,
 			items: todos,
-			userId: uuid
+			userId: uuid,
+			status
 		};
 
 		const todoRef = doc(db, `users/${uuid}/artifacts/${todoId}`);
@@ -88,15 +94,18 @@ export async function saveTodos(
  * @param date The date to get todos for, defaults to today
  * @returns Promise resolving to array of todo items
  */
-export async function getTodos(uuid: string, date: Date = new Date()): Promise<TodoItem[]> {
+export async function getTodos(
+	uuid: string,
+	date: Date = new Date()
+): Promise<TodoArtifact | null> {
 	const todoArtifacts = await getTodosForDate(uuid, date);
 
 	if (todoArtifacts.length > 0) {
-		return todoArtifacts[0].items;
+		return todoArtifacts[0];
 	}
 
 	// Return empty array if no todos found
-	return [];
+	return null;
 }
 
 /**
@@ -154,4 +163,34 @@ export async function getTodosInRange(
 	});
 
 	return todos;
+}
+
+export function monitorTodoStatus(uuid: string, date: Date) {
+	let status = $state<'generating' | 'completed' | null>(null);
+	let unsubscribe: (() => void) | null = null;
+
+	(async () => {
+		const dateString = formatISO(date).split('T')[0];
+		const artifactsRef = collection(db, `users/${uuid}/artifacts`);
+		const q = query(artifactsRef, where('type', '==', 'todo'), where('date', '==', dateString));
+		const querySnapshot = await getDocs(q);
+
+		if (!querySnapshot.empty) {
+			const docId = querySnapshot.docs[0].id;
+			const todoDocRef = doc(db, `users/${uuid}/artifacts/${docId}`);
+			unsubscribe = onSnapshot(todoDocRef, (docSnap) => {
+				const data = docSnap.data() as TodoArtifact | undefined;
+				status = data?.status ?? null;
+			});
+		} else {
+			status = null;
+		}
+	})();
+
+	return {
+		status,
+		unsubscribe: () => {
+			if (unsubscribe) unsubscribe();
+		}
+	};
 }
