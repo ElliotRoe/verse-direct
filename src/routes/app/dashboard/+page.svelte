@@ -1,21 +1,134 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 	import Button from '$lib/components/ui/button/button.svelte';
 	import { onMount } from 'svelte';
 	import { initializeCheckinState, handleCheckIn } from '$lib/services/checkinService';
+	import Input from '$lib/components/ui/input/input.svelte';
+	import Icon from '@iconify/svelte';
+	import AudioVisualizationCircle from '$lib/components/waveform/audio-visualization-circle.svelte';
+	import * as Drawer from '$lib/components/ui/drawer/index.js';
+	import { buttonVariants } from '$lib/components/ui/button/index.js';
+	import ProgressDrawer from '$lib/components/progress-drawer.svelte';
+	import { saveTodos, getTodos, type TodoItem } from '$lib/services/todoService';
+	import { firebaseUser } from '$lib/authentication';
 
-	const dayAbrev = ['Su', 'M', 'Tu', 'W', 'Th', 'F', 'Sa'];
+	const dayAbrev = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 	let hasCheckedInToday = false;
 
+	// Parse URL parameter for drawer state - default to true if not specified
+	const initialDrawerState = $page.url.searchParams.get('open') !== 'false';
+	let isDrawerOpen = $state(initialDrawerState);
+
 	// Get current day of week (0-6, where 0 is Sunday) in local timezone for calendar display
-	const currentDayCalendar = new Date().getDay();
+	// const currentDayCalendar = new Date().getDay();
+	let currentDayCalendar = $state(new Date().getDay()); // MODIFIED: Make reactive for helper functions
 
 	let streakCount = 0; // Reactive variable for streak display
 
-	onMount(() => {
+	let circleSize = $state(400);
+
+	let todaysTasks = $state<TodoItem[]>([{ title: 'Loading...', completed: false }]);
+
+	const trySaveTodos = async () => {
+		if (firebaseUser.data?.uid) {
+			await saveTodos(firebaseUser.data.uid, todaysTasks, selectedDate);
+		} else {
+			console.error('No user ID found');
+		}
+	};
+
+	// svelte-ignore state_referenced_locally
+	let originalTodaysTasks = $state<string>(JSON.stringify($state.snapshot(todaysTasks)));
+
+	const handleDrawerClose = async () => {
+		const newTodaysTasks = JSON.stringify($state.snapshot(todaysTasks));
+		if (originalTodaysTasks !== newTodaysTasks) {
+			originalTodaysTasks = newTodaysTasks;
+			// Save to firebase
+			try {
+				await trySaveTodos();
+			} catch (error) {
+				console.error('Failed to save todos:', error);
+			}
+		}
+	};
+
+	interface DisplayedDay {
+		// NEW
+		abbr: string;
+		originalIndex: number;
+		dayNumber: number;
+	}
+	let displayedDays: DisplayedDay[] = $state([]); // NEW
+
+	function updateSize() {
+		circleSize = window.innerWidth < 640 ? Math.min(window.innerWidth - 125, 400) : 400;
+	}
+
+	function setupCalendarDays() {
+		const today = new Date();
+		const todayOriginalIndex = today.getDay();
+		currentDayCalendar = todayOriginalIndex;
+
+		const offset = 2 - todayOriginalIndex; // Center is index 2 for 5 days
+		const newDisplayedDays: DisplayedDay[] = [];
+
+		for (let i = 0; i < 5; i++) {
+			const originalDayIndexToDisplayInThisSlot = (i - offset + 70) % 7;
+			// Calculate the real date for this chip (center chip is today)
+			const date = new Date(today);
+			date.setDate(today.getDate() + (i - 2));
+			newDisplayedDays.push({
+				abbr: dayAbrev[originalDayIndexToDisplayInThisSlot],
+				originalIndex: originalDayIndexToDisplayInThisSlot,
+				dayNumber: date.getDate()
+			});
+		}
+		displayedDays = newDisplayedDays;
+	}
+
+	let selectedDate = $state(new Date());
+
+	// Function to load todos for a specific date
+	async function loadTodosForDate(date: Date) {
+		try {
+			selectedDate = date;
+			if (firebaseUser.data?.uid) {
+				const todos = await getTodos(firebaseUser.data.uid, date);
+				todaysTasks =
+					todos.length > 0 ? todos : [{ title: 'Add your tasks for this day', completed: false }];
+			} else {
+				console.error('No user ID found');
+			}
+			originalTodaysTasks = JSON.stringify($state.snapshot(todaysTasks));
+		} catch (error) {
+			console.error('Failed to load todos for date:', error);
+		}
+	}
+
+	// Handle day chip click to load todos for that day
+	function handleDayClick(index: number) {
+		const clickedDay = displayedDays[index];
+		if (clickedDay) {
+			const today = new Date();
+			const newDate = new Date(today);
+			newDate.setDate(today.getDate() + (index - 2)); // Offset from today
+			loadTodosForDate(newDate);
+		}
+	}
+
+	onMount(async () => {
 		const initialState = initializeCheckinState();
 		streakCount = initialState.streakCount;
 		hasCheckedInToday = initialState.hasCheckedInToday;
+		setupCalendarDays(); // Initialize calendar day chips
+	});
+
+	$effect(() => {
+		if (firebaseUser.data) {
+			loadTodosForDate(selectedDate);
+		}
 	});
 
 	// Function to determine if a day is in the past (for calendar styling)
@@ -28,55 +141,90 @@
 		return index === currentDayCalendar;
 	};
 
-	// Function to determine if it's a weekend (for calendar styling)
-	const isWeekend = (index: number): boolean => {
-		return index === 0 || index === 6; // Saturday or Sunday
-	};
-
 	const onCheckInClicked = () => {
 		const result = handleCheckIn();
 		streakCount = result.newStreakCount;
 		hasCheckedInToday = result.newHasCheckedInToday;
 		goto('/app');
 	};
+
+	const onReviewClicked = () => {
+		isDrawerOpen = true;
+	};
 </script>
 
-<div class="flex h-full w-full flex-col items-center justify-between">
-	<div class="flex h-1/3 flex-col justify-center">
-		<span class="text-[125px]">{streakCount}</span>
-		<span class="text-muted-foreground">days</span>
-	</div>
-	<div
-		class="flex h-2/3 w-full max-w-[500px] flex-col justify-between rounded-t-2xl bg-background p-4 shadow-lg"
-	>
-		<div class="flex w-full flex-row">
-			{#each dayAbrev as abbrv, index}
-				<div
-					class="m-1 flex aspect-square w-full flex-col items-center justify-center rounded-full transition-colors"
-					class:bg-muted={isWeekend(index)}
-					class:bg-primary={isCurrentDay(index)}
-					class:bg-secondary={isPastDay(index) && !isWeekend(index)}
-					class:bg-accent={!isPastDay(index) && !isCurrentDay(index) && !isWeekend(index)}
-					class:text-primary-foreground={isCurrentDay(index)}
-					class:text-muted-foreground={isWeekend(index)}
-					class:text-secondary-foreground={isPastDay(index) && !isWeekend(index)}
-					class:text-accent-foreground={!isPastDay(index) &&
-						!isCurrentDay(index) &&
-						!isWeekend(index)}
-				>
-					{abbrv}
-				</div>
-			{/each}
+<div class="flex h-full w-full flex-col items-start justify-between">
+	<div class="flex w-full flex-col p-4 text-lg font-bold text-yellow-900">
+		<div class="flex flex-row items-center justify-between">
+			<span class="font-cinzel"
+				>{selectedDate.toLocaleDateString('en-US', {
+					weekday: 'long',
+					month: 'long',
+					day: 'numeric'
+				})}</span
+			>
+			<div class="flex flex-row items-center justify-center gap-2">
+				<Icon icon="ph:flame" class="h-4 w-4" />
+				<span class="text-xl font-bold">{streakCount}</span>
+			</div>
 		</div>
-		<div class="flex flex-col gap-2"></div>
-
-		<div class="relative">
-			<Button onclick={onCheckInClicked} class="h-[100px] w-full" disabled={hasCheckedInToday}>
-				Check-in
-			</Button>
+		<div class="mt-2 flex flex-row items-center justify-between">
+			<div class="flex w-full flex-row items-center justify-center gap-2 text-center">
+				{#each displayedDays as dayChip, index}
+					{@const isActualCurrentDay = isCurrentDay(dayChip.originalIndex)}
+					{@const isActualPastDay = isPastDay(dayChip.originalIndex) && !isActualCurrentDay}
+					<div
+						class="day-chip"
+						class:day-chip-current={isActualCurrentDay}
+						class:day-chip-past={!isActualCurrentDay && isActualPastDay}
+						class:day-chip-future={!isActualCurrentDay && !isActualPastDay}
+					>
+						<span class="font-normal italic">{dayChip.abbr}</span>
+						<span class="font-cinzel text-xl font-bold">{dayChip.dayNumber}</span>
+					</div>
+				{/each}
+			</div>
+		</div>
+	</div>
+	<AudioVisualizationCircle isSessionActive={false} size={275} variant="accent" />
+	<div class="flex w-full max-w-[500px] flex-row rounded-t-2xl bg-background p-4 shadow-lg">
+		<div class="flex w-full flex-col items-start justify-start gap-2">
 			{#if hasCheckedInToday}
-				<div class="absolute right-4 top-1/2 -translate-y-1/2 text-2xl">✓</div>
+				<Button onclick={onCheckInClicked} class="h-[60px] w-full text-lg">
+					<Icon icon="ph:check-circle" class="mr-2 h-6 w-6" />
+					Check-in
+				</Button>
+			{:else}
+				<div class="w-full">
+					<ProgressDrawer
+						bind:isOpen={isDrawerOpen}
+						bind:todaysTasks
+						onClose={handleDrawerClose}
+						{selectedDate}
+					/>
+				</div>
 			{/if}
 		</div>
 	</div>
 </div>
+
+<style lang="postcss">
+	.day-chip {
+		@apply flex flex-1 flex-col items-center justify-center rounded-full border p-2 text-center font-sans;
+	}
+	.day-chip-current {
+		@apply border-yellow-700 bg-yellow-900 font-bold text-white;
+	}
+	.day-chip-past {
+		@apply border-yellow-200/70 bg-yellow-50 text-yellow-700 opacity-80;
+	}
+	.day-chip-past span {
+		@apply italic;
+	}
+	.day-chip-future {
+		@apply border-yellow-300/80 bg-yellow-100 font-medium text-yellow-800;
+	}
+	.day-chip-selected {
+		@apply border-yellow-600 bg-yellow-500 font-bold text-white;
+	}
+</style>

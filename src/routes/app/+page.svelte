@@ -8,22 +8,21 @@
 	import Icon from '@iconify/svelte';
 	import { Toggle } from '$lib/components/ui/toggle';
 	import Button from '$lib/components/ui/button/button.svelte';
-	import * as Dialog from '$lib/components/ui/dialog';
 	import { db } from '$lib/firebase';
 	import { collection, doc, getDoc, query, orderBy, limit, getDocs } from 'firebase/firestore';
 	import { goto } from '$app/navigation';
+	import WelcomeDrawer from '$lib/components/welcome-drawer.svelte';
+	import { getTodos, type TodoItem } from '$lib/services/todoService';
 
 	let conversationId = $state<string>(uuidv4());
 	let circleSize = $state(400);
-	let isMuted = $state(false);
-	let showWelcomeDialog = $state(true);
+	let showWelcomeDrawer = $state(false);
 	let instructions = $state<string>('');
+	let previousDaysTodos = $state<TodoItem[]>([]);
 
 	function updateSize() {
 		circleSize = window.innerWidth < 640 ? Math.min(window.innerWidth - 125, 400) : 400;
 	}
-
-	$inspect(firebaseUser.data);
 
 	async function fetchUserInstructions() {
 		if (!firebaseUser.data?.uid) {
@@ -53,9 +52,21 @@
 		}
 	}
 
+	async function fetchPreviousDaysTodos() {
+		if (!firebaseUser.data?.uid) {
+			return;
+		}
+
+		const yesterday = new Date();
+		yesterday.setDate(yesterday.getDate() - 1);
+		const todos = await getTodos(firebaseUser.data.uid, yesterday);
+		previousDaysTodos = todos;
+	}
+
 	$effect(() => {
 		if (firebaseUser.data && !firebaseUser.loading && !instructions) {
-			void fetchUserInstructions();
+			fetchUserInstructions();
+			fetchPreviousDaysTodos();
 		}
 	});
 
@@ -101,61 +112,64 @@
 						/>
 					</div>
 				</div>
-				<div class="flex h-[20vh] w-full flex-row gap-2 rounded-t-xl bg-background p-4 shadow-md">
-					<Toggle
-						pressed={isMuted}
-						class="h-full w-2/3 rounded-full border"
-						on:click={() => {
-							toggleRecording();
-							isMuted = isRecording;
-						}}
-					>
-						{#if isMuted}
-							<Icon icon="ph:microphone-slash" class="h-10 w-10" />
+
+				<div class="flex w-full flex-col gap-4 rounded-t-xl bg-background p-4 shadow-md">
+					<div class="mb-3">
+						<h3 class="text-lg font-semibold">Yesterday's Tasks</h3>
+						{#if previousDaysTodos.length > 0}
+							<div class="mt-2 max-h-32 overflow-y-auto rounded-md border">
+								{#each previousDaysTodos as todo}
+									<div class="flex items-center border-b p-2 last:border-b-0">
+										<div class="mr-2 flex h-5 w-5 items-center justify-center rounded-full border">
+											{#if todo.completed}
+												<Icon icon="ph:check" class="h-4 w-4 text-primary" />
+											{/if}
+										</div>
+										<span class={todo.completed ? 'line-through opacity-70' : ''}>{todo.title}</span
+										>
+									</div>
+								{/each}
+							</div>
 						{:else}
-							<Icon icon="ph:microphone" class="h-10 w-10" />
+							<p class="mt-2 text-sm text-muted-foreground">No tasks from yesterday</p>
 						{/if}
-					</Toggle>
-					<Button
-						variant="destructiveLight"
-						size="icon"
-						class="h-full w-1/3 rounded-full"
-						onclick={() => {
-							stopSession();
-							goto('/app/dashboard');
-						}}
-					>
-						<Icon icon="ph:x" class="h-10 w-10" />
-					</Button>
+					</div>
+					<div class="flex flex-row gap-2">
+						<Button
+							class="h-full w-2/3 rounded-full border"
+							onclick={() => {
+								toggleRecording();
+							}}
+						>
+							{#if !isRecording}
+								<Icon icon="ph:microphone-slash" class="h-10 w-10" />
+							{:else}
+								<Icon icon="ph:microphone" class="h-10 w-10" />
+							{/if}
+						</Button>
+						<Button
+							variant="destructiveLight"
+							size="icon"
+							class="h-full w-1/3 rounded-full"
+							onclick={() => {
+								stopSession();
+								goto('/app/dashboard');
+							}}
+						>
+							<Icon icon="ph:x" class="h-10 w-10" />
+						</Button>
+					</div>
 				</div>
 			</div>
 		</div>
 
-		<Dialog.Root bind:open={showWelcomeDialog}>
-			<Dialog.Content class="flex aspect-square w-[400px] flex-col items-center justify-center">
-				<Dialog.Header class="flex flex-col items-center text-center">
-					<Dialog.Title class="font-caveat text-4xl">Headphones Reccomended</Dialog.Title>
-					<Dialog.Description class="flex flex-col items-center">
-						<img src="/logo-headphones.png" alt="Headphones" class="w-full" />
-					</Dialog.Description>
-				</Dialog.Header>
-				<Dialog.Footer class="mt-auto">
-					<Button
-						variant="secondary"
-						disabled={!instructions || firebaseUser.loading}
-						on:click={() => {
-							startSession('default');
-							showWelcomeDialog = false;
-						}}
-					>
-						{#if firebaseUser.loading || !instructions}
-							Loading...
-						{:else}
-							Start Session
-						{/if}
-					</Button>
-				</Dialog.Footer>
-			</Dialog.Content>
-		</Dialog.Root>
+		<WelcomeDrawer
+			bind:isOpen={showWelcomeDrawer}
+			bind:instructions
+			{startSession}
+			onClose={() => {
+				goto('/app/dashboard');
+			}}
+		/>
 	{/snippet}
 </AssistantSession>
