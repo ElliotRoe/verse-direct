@@ -187,7 +187,7 @@
 	<AudioVisualizationCircle isSessionActive={false} size={275} variant="accent" />
 	<div class="flex w-full max-w-[500px] flex-row rounded-t-2xl bg-background p-4 shadow-lg">
 		<div class="flex w-full flex-col items-start justify-start gap-2">
-			{#if hasCheckedInToday}
+			{#if !hasCheckedInToday}
 				<Button onclick={onCheckInClicked} class="h-[60px] w-full text-lg">
 					<Icon icon="ph:check-circle" class="mr-2 h-6 w-6" />
 					Check-in

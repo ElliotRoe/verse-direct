@@ -16,7 +16,7 @@
 
 	let conversationId = $state<string>(uuidv4());
 	let circleSize = $state(400);
-	let showWelcomeDrawer = $state(false);
+	let showWelcomeDrawer = $state(true);
 	let instructions = $state<string>('');
 	let previousDaysTodos = $state<TodoItem[]>([]);
 
@@ -155,7 +155,7 @@
 							class="h-full w-1/3 rounded-full"
 							onclick={() => {
 								stopSession();
-								goto('/app/dashboard');
+								goto('/app/dashboard?open=true');
 							}}
 						>
 							<Icon icon="ph:x" class="h-10 w-10" />

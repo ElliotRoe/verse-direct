@@ -18,7 +18,6 @@
 	function handleStartSession() {
 		startSession('default');
 		isOpen = false;
-		onClose();
 	}
 </script>
 
@@ -46,7 +45,7 @@
 					{/if}
 				</Button>
 
-				<Drawer.Close asChild>
+				<Drawer.Close>
 					<Button variant="outline" class="mt-2 w-full" onclick={onClose}>Cancel</Button>
 				</Drawer.Close>
 			</Drawer.Footer>
