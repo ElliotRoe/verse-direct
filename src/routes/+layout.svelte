@@ -2,7 +2,6 @@
 	import '../app.css';
 	let { children } = $props();
 	import { analytics } from '$lib/firebase';
-	import ThemeToggle from '$lib/components/theme-toggle.svelte';
 
 	import { logEvent, type Analytics } from 'firebase/analytics';
 	import { page } from '$app/state';
@@ -31,19 +30,16 @@
 	});
 </script>
 
-<main class="h-screen w-full bg-gradient-to-br from-yellow-100 to-orange-200">
+<main
+	class="flex h-screen w-full flex-col items-center justify-center bg-gradient-to-br from-yellow-100 to-orange-200"
+>
 	{@render children()}
 </main>
 
 <style>
-	@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&display=swap');
-	@import url('https://fonts.googleapis.com/css2?family=Metal+Mania&display=swap');
+	@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400..900&display=swap');
 
-	:global(.font-caveat) {
-		font-family: 'Caveat', cursive;
-	}
-
-	:global(.font-metal) {
-		font-family: 'Metal Mania', cursive;
+	:global(.font-cinzel) {
+		font-family: 'Cinzel', serif;
 	}
 </style>

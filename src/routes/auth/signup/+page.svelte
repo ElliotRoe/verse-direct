@@ -20,7 +20,7 @@
 		<div class="relative z-20 flex items-center text-xl font-medium">
 			<!-- <Command class="mr-2 h-6 w-6" /> -->
 			<a href="/" class="flex items-center space-x-1 hover:opacity-80">
-				<img src="/images/logo.png" alt="Verse Logo" class="h-12" />
+				<img src="/logo.png" alt="Verse Logo" class="h-12" />
 				<span>Verse</span>
 			</a>
 		</div>
